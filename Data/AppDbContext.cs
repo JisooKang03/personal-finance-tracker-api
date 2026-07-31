@@ -53,6 +53,18 @@ namespace PersonalFinanceTracker.Api.Data
 
             modelBuilder.Entity<Transaction>()
                 .HasQueryFilter(t => !t.IsDeleted);
+
+            modelBuilder.Entity<Category>().HasData(
+                new Category { Id = 1, Name = "Groceries", Type = "Expense" },
+                new Category { Id = 2, Name = "Rent", Type = "Expense" },
+                new Category { Id = 3, Name = "Utilities", Type = "Expense" },
+                new Category { Id = 4, Name = "Transportation", Type = "Expense" },
+                new Category { Id = 5, Name = "Entertainment", Type = "Expense" },
+                new Category { Id = 6, Name = "Dining Out", Type = "Expense" },
+                new Category { Id = 7, Name = "Salary", Type = "Income" },
+                new Category { Id = 8, Name = "Freelance", Type = "Income" },
+                new Category { Id = 9, Name = "Other Income", Type = "Income" }
+            );
         }
     }
 }
