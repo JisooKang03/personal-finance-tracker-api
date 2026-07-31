@@ -69,7 +69,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<AuthService>();
-
+builder.Services.AddScoped<BlobStorageService>();
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())

@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using PersonalFinanceTracker.Api.Data;
 using PersonalFinanceTracker.Api.DTOs;
 using PersonalFinanceTracker.Api.Models;
+using PersonalFinanceTracker.Api.Services;
 
 namespace PersonalFinanceTracker.Api.Controllers
 {
@@ -14,10 +16,12 @@ namespace PersonalFinanceTracker.Api.Controllers
     public class TransactionsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly BlobStorageService _blobStorageService;
 
-        public TransactionsController(AppDbContext context)
+        public TransactionsController(AppDbContext context, BlobStorageService blobStorageService)
         {
             _context = context;
+            _blobStorageService = blobStorageService;
         }
 
         private int GetUserId()
@@ -28,8 +32,6 @@ namespace PersonalFinanceTracker.Api.Controllers
             return int.Parse(userIdClaim!.Value);
         }
 
-        // Checks that the given account actually belongs to the logged-in user.
-        // Every endpoint below relies on this before touching any transaction data.
         private async Task<bool> UserOwnsAccount(int accountId, int userId)
         {
             return await _context.Accounts
@@ -109,11 +111,9 @@ namespace PersonalFinanceTracker.Api.Controllers
         {
             var userId = GetUserId();
 
-            // Ownership check #1: does this account belong to the logged-in user?
             if (!await UserOwnsAccount(request.AccountId, userId))
                 return Forbid();
 
-            // Validate the category actually exists
             var categoryExists = await _context.Categories.AnyAsync(c => c.Id == request.CategoryId);
             if (!categoryExists)
                 return BadRequest(new { message = "Invalid category." });
@@ -130,7 +130,6 @@ namespace PersonalFinanceTracker.Api.Controllers
 
             _context.Transactions.Add(transaction);
 
-            // Update the account's running balance
             var account = await _context.Accounts.FindAsync(request.AccountId);
             if (account != null)
             {
@@ -139,7 +138,6 @@ namespace PersonalFinanceTracker.Api.Controllers
 
             await _context.SaveChangesAsync();
 
-            // Reload with navigation properties for the response
             var created = await _context.Transactions
                 .Include(t => t.Account)
                 .Include(t => t.Category)
@@ -183,7 +181,6 @@ namespace PersonalFinanceTracker.Api.Controllers
             if (!categoryExists)
                 return BadRequest(new { message = "Invalid category." });
 
-            // Reverse the old transaction's effect on the account balance
             var oldAccount = await _context.Accounts.FindAsync(transaction.AccountId);
             if (oldAccount != null)
             {
@@ -197,7 +194,6 @@ namespace PersonalFinanceTracker.Api.Controllers
             transaction.Description = request.Description;
             transaction.Date = request.Date;
 
-            // Apply the new transaction's effect on the (possibly different) account
             var newAccount = await _context.Accounts.FindAsync(request.AccountId);
             if (newAccount != null)
             {
@@ -222,18 +218,90 @@ namespace PersonalFinanceTracker.Api.Controllers
             if (transaction == null)
                 return NotFound();
 
-            // Reverse this transaction's effect on the account balance
             var account = await _context.Accounts.FindAsync(transaction.AccountId);
             if (account != null)
             {
                 account.Balance -= transaction.Type == "Income" ? transaction.Amount : -transaction.Amount;
             }
 
-            transaction.IsDeleted = true; // soft delete, not Remove()
+            transaction.IsDeleted = true;
 
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        // POST: api/transactions/5/receipt
+        [HttpPost("{id}/receipt")]
+        public async Task<ActionResult<TransactionResponse>> UploadReceipt(int id, IFormFile file)
+        {
+            var userId = GetUserId();
+
+            var transaction = await _context.Transactions
+                .Include(t => t.Account)
+                .Include(t => t.Category)
+                .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId);
+
+            if (transaction == null)
+                return NotFound();
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "No file uploaded." });
+
+            var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+            if (!allowedTypes.Contains(file.ContentType))
+                return BadRequest(new { message = "Only JPEG, PNG, or WebP images are allowed." });
+
+            if (file.Length > 5 * 1024 * 1024)
+                return BadRequest(new { message = "File size must be under 5MB." });
+
+            if (!string.IsNullOrEmpty(transaction.ReceiptUrl))
+            {
+                await _blobStorageService.DeleteReceiptAsync(transaction.ReceiptUrl);
+            }
+
+            var receiptUrl = await _blobStorageService.UploadReceiptAsync(file, userId, transaction.Id);
+
+            transaction.ReceiptUrl = receiptUrl;
+            await _context.SaveChangesAsync();
+
+            var response = new TransactionResponse
+            {
+                Id = transaction.Id,
+                AccountId = transaction.AccountId,
+                AccountName = transaction.Account!.Name,
+                CategoryId = transaction.CategoryId,
+                CategoryName = transaction.Category!.Name,
+                Amount = transaction.Amount,
+                Type = transaction.Type,
+                Description = transaction.Description,
+                Date = transaction.Date,
+                ReceiptUrl = transaction.ReceiptUrl,
+                CreatedAt = transaction.CreatedAt
+            };
+
+            return Ok(response);
+        }
+
+        // GET: api/transactions/5/receipt-url
+        [HttpGet("{id}/receipt-url")]
+        public async Task<ActionResult> GetReceiptUrl(int id)
+        {
+            var userId = GetUserId();
+
+            var transaction = await _context.Transactions
+                .Include(t => t.Account)
+                .FirstOrDefaultAsync(t => t.Id == id && t.Account!.UserId == userId);
+
+            if (transaction == null)
+                return NotFound();
+
+            if (string.IsNullOrEmpty(transaction.ReceiptUrl))
+                return NotFound(new { message = "This transaction has no receipt attached." });
+
+            var sasUrl = _blobStorageService.GenerateReceiptSasUrl(transaction.ReceiptUrl);
+
+            return Ok(new { url = sasUrl, expiresInMinutes = 15 });
         }
     }
 }
