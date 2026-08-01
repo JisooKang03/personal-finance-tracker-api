@@ -62,7 +62,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "https://personal-finance-tracker-web.vercel.app"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -72,12 +75,9 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BlobStorageService>();
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.MapOpenApi();
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
