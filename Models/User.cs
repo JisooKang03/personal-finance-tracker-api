@@ -16,11 +16,12 @@ namespace PersonalFinanceTracker.Api.Models
         public string PasswordHash { get; set; } = string.Empty;
 
         [Required, MaxLength(20)]
-        public string Role { get; set; } = "User"; // "User" or "Admin"
+        public string Role { get; set; } = "User";
+
+        public string? ProfilePhotoUrl { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Navigation
         public ICollection<Account> Accounts { get; set; } = new List<Account>();
         public ICollection<Budget> Budgets { get; set; } = new List<Budget>();
     }
