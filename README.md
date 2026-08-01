@@ -1,5 +1,7 @@
 # Personal Finance Tracker — API
+🔗 **Live API:** [personal-finance-tracker-api-w66o.onrender.com/swagger](https://personal-finance-tracker-api-w66o.onrender.com/swagger)
 
+> Note: hosted on Render's free tier, which spins down after inactivity — the first request may take 30–60 seconds to wake up.
 A secure, full-featured REST API for tracking personal finances — accounts, transactions, budgets, and receipts — built with ASP.NET Core, Entity Framework Core, and Azure Blob Storage.
 
 Built as a portfolio project to demonstrate real-world backend patterns relevant to fintech/banking systems: JWT authentication, role-based authorization, ownership-scoped data access, and secure file storage.
