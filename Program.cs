@@ -9,20 +9,20 @@ using PersonalFinanceTracker.Api.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
-builder.Services.AddEndpointsApiExplorer();
+// builder.Services.AddOpenApi();
+// builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddSwaggerGen(options =>
-{
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Enter your JWT token below (no need to type 'Bearer' prefix, Swagger adds it automatically)"
-    });
+// builder.Services.AddSwaggerGen(options =>
+// {
+//     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+//     {
+//         Name = "Authorization",
+//         Type = SecuritySchemeType.Http,
+//         Scheme = "Bearer",
+//         BearerFormat = "JWT",
+//         In = ParameterLocation.Header,
+//         Description = "Enter your JWT token below (no need to type 'Bearer' prefix, Swagger adds it automatically)"
+//     });
 
     options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
@@ -75,9 +75,9 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BlobStorageService>();
 var app = builder.Build();
 
-app.MapOpenApi();
-app.UseSwagger();
-app.UseSwaggerUI();
+// app.MapOpenApi();
+// app.UseSwagger();
+// app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
